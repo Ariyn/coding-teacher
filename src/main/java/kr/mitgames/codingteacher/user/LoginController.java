@@ -1,48 +1,54 @@
 package kr.mitgames.codingteacher.user;
 
+import kr.mitgames.codingteacher.Application;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.bind.annotation.*;
 
-import kr.mitgames.codingteacher.user.User;
-import kr.mitgames.codingteacher.user.UserRepository;
+import java.util.Map;
+import java.util.logging.Level;
 
-@Controller
-@RequestMapping(path="/login")
+class LoginFailedException extends RuntimeException {
+    LoginFailedException() {
+        super("user not exists or wrong password");
+    }
+
+    LoginFailedException(String function) {
+        super(function+" failed! user not exists or wrong password");
+    }
+}
+
+@RestController
 public class LoginController {
     @Autowired
-    private UserRepository userRepository;
+    private EndUserRepository endUserRepository;
+    @Autowired
+    private BCryptPasswordEncoder bCryptPasswordEncoder;
 
-    @RequestMapping()
-    public String loginPage(Model model) {
-        return "login";
+    @PostMapping("/sign-up")
+    public void signUp(@RequestBody EndUserDTO userDto) {
+        userDto.setPassword(bCryptPasswordEncoder.encode(userDto.getPassword()));
+        EndUser user = new EndUser();
+        user.cast(userDto);
+
+        endUserRepository.save(user);
     }
 
-    @RequestMapping("/check")
-    public @ResponseBody String loginPage(@RequestParam String loginId, @RequestParam String password) {
-        return loginId+" "+password;
-    }
-
-    @GetMapping(path="/add")
-    public @ResponseBody String addNewUser(@RequestParam String loginId, @RequestParam String email) {
-        User u = new User();
-        u.setLoginId(loginId);
-        u.setEmailAccount(email);
-        u.setPasswordHash("test");
-        u.setStudyLevel(1);
-        u.setPermissionLevel(1);
-
-        userRepository.save(u);
-
-        return "Succeed";
+    @PostMapping("/delete")
+    public void delete(@RequestBody EndUserDTO userDto) {
+        userDto.setPassword(bCryptPasswordEncoder.encode(userDto.getPassword()));
+        EndUser user = endUserRepository.findUserByLoginId(userDto.getLoginId());
+        if(null != user)
+            endUserRepository.delete(user);
+        else {
+            throw new LoginFailedException();
+        }
     }
 
     @GetMapping(path="/all")
-    public @ResponseBody Iterable<User> getAllUsers() {
-        return userRepository.findAll();
+    public @ResponseBody Iterable<EndUser> getAllUsers() {
+        return endUserRepository.findAll();
     }
 }
